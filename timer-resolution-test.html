@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Timer Delta Frequency Table</title>
+</head>
+<body>
+<h1>Timer Resolution Frequency Test</h1>
+<pre id="output">Running...</pre>
+
+<script>
+    const output = document.getElementById("output");
+
+    // Step 1: Collect deltas
+    const values = [];
+    let last = performance.now();
+
+    for (let i = 0; i < 10000000; i++) {
+        const now = performance.now();
+        const delta = now - last;
+        if (delta > 0) values.push((delta * 1000).toFixed(3));  // keep full microsecond precision  // µs
+        last = now;
+    }
+
+    // Step 2: Count frequency
+    const freq = {};
+    for (const v of values) {
+        freq[v] = (freq[v] || 0) + 1;
+    }
+
+    // Step 3: Sort by frequency (descending)
+    const sorted = Object.entries(freq)
+        .sort((a, b) => b[1] - a[1])  // [delta, count]
+        .map(([delta, count]) => ({ delta: Number(delta), count }));
+
+    // Step 4: Build table string
+    const totalSamples = values.length;
+    const deltasRow = "Delta (µs): ".padEnd(14) + sorted.map(x => String(x.delta).padStart(6)).join("");
+    const countRow  = "Count:      ".padEnd(14) + sorted.map(x => String(x.count).padStart(6)).join("");
+    const summary   = `Total samples collected: ${totalSamples}\n\n`;
+    output.textContent = summary + deltasRow + "\n" + countRow;</script>
+</body>
+</html>
