@@ -1,0 +1,47 @@
+📝 Summary: Browser Timer Resolution and Side-Channel Feasibility
+🎯 Objective
+Investigate the resolution of browser timers under different isolation settings
+and evaluate their suitability for side-channel attacks, specifically Prime+Probe.
+
+🧪 Methodology
+Implemented a high-frequency delta collector using performance.now() to measure timing resolution in microseconds.
+
+Served the test via HTTP with COOP and COEP headers to activate cross-origin isolation:
+
+Compared timer behavior across platforms (Windows vs. Ubuntu) and browsers (Chrome, Firefox, Edge).
+
+🔍 Findings
+Without isolation headers:
+
+performance.now() is clamped (e.g., 100µs resolution).
+
+Results show coarse, rounded deltas → unusable for fine-grained attacks.
+
+With COOP+COEP enabled:
+
+Timer resolution improves (observed: ~5.00µs).
+
+No evidence of fuzzing → timer output is consistent and reliable.
+
+Clock phase recovery and edge thresholding were discussed:
+
+Useful for 1-bit leak scenarios, **but not viable** for full cache timing attacks.
+
+✅ Conclusion: Prime+Probe Viability
+Feasible only when:
+
+Victim visits your site directly (not embedded).
+
+Site is served with COOP+COEP.
+
+You leverage SharedArrayBuffer to build a high-resolution counter.
+
+Page stays in foreground and focused.
+
+Not feasible when:
+
+You’re in an iframe or ad container.
+
+Browser tab is in background.
+
+Security-hardened environments like Tor or Brave are used.
