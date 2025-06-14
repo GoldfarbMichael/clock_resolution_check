@@ -4,10 +4,6 @@
     * the worker thread will count++ infinitely
 * */
 
-// ----------------------------------------------
-//   Probe Shusterman Style
-// ----------------------------------------------
-
 // Create shared memory buffer
 const sharedBuffer = new SharedArrayBuffer(4);
 const counter = new Uint32Array(sharedBuffer);
@@ -15,10 +11,35 @@ const counter = new Uint32Array(sharedBuffer);
 const worker = new Worker('worker.js');
 worker.postMessage(sharedBuffer);
 
+//---------------------------------------------------
+// Phase 1: SAB + Rendering Load Measurement
+//---------------------------------------------------
+
+// Create heavy rendering workload
+function renderHeavyTask() {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    for (let i = 0; i < 1000; i++) {
+        const div = document.createElement('div');
+        div.style.width = '500px';
+        div.style.height = '500px';
+        div.style.border = '1px solid black';
+        div.style.margin = '5px';
+        container.appendChild(div);
+    }
+}
+
+// ----------------------------------------------
+//   Probe Shusterman Style
+// ----------------------------------------------
+
+
 // Parameters
 const BUFFER_SIZE_MB = 12;  // size of probe buffer
 const LINE_SIZE = 64;  // size of one cache line (64 bytes)
-const NUM_ITERATIONS = 100;  // number of Prime+Probe rounds
+const PROBE_ITERATIONS = 100;  // number of Probe rounds
+const RENDER_THRESHOLD = 10000;
 
 // Allocate probe buffer
 const probeBuffer = new Uint8Array(BUFFER_SIZE_MB * 1024 * 1024);
@@ -44,54 +65,54 @@ function shuffle(array) {
     }
 }
 
-// Probe loop
-async function Probe() {
-    console.log("Starting randomized Prime+Probe...");
+async function monitorRenderingAndSweep() {
+    console.log("Starting rendering monitor...");
 
-    const offsets = buildRandomTraversal(probeBuffer, LINE_SIZE);
+    const sweepOffsets = buildRandomTraversal(probeBuffer, LINE_SIZE);
+    let sweepingStarted = false;
 
-    for (let iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
-        // PROBE
-        const probeStart = Atomics.load(counter, 0);
+    while (!sweepingStarted) {
+        // Clean DOM
+        document.body.innerHTML = '';
+
+        const start = Atomics.load(counter, 0);
+        renderHeavyTask();
+        const end = Atomics.load(counter, 0);
+        const delta = end - start;
+
+        if (delta >= RENDER_THRESHOLD) {
+            console.log(`Rendering threshold exceeded! Starting sweeping...`);
+            await sweepBufferMultipleTimes(sweepOffsets, PROBE_ITERATIONS);
+            sweepingStarted = true;
+        }
+
+        await sleep(200);
+    }
+}
+
+async function sweepBufferMultipleTimes(offsets, iterations) {
+    for (let iter = 0; iter < iterations; iter++) {
+        const sweepStart = Atomics.load(counter, 0);
         for (const offset of offsets) {
             probeBuffer[offset]++;
         }
-        const probeEnd = Atomics.load(counter, 0);
+        const sweepEnd = Atomics.load(counter, 0);
+        const sweepDelta = sweepEnd - sweepStart;
 
-        const probeTime = probeEnd - probeStart;
-        console.log(`Iteration ${iteration + 1}: Probe time (SAB ticks): ${probeTime}`);
+        console.log(`Sweep ${iter + 1}: SAB sweep delta = ${sweepDelta}`);
+        await sleep(50);
     }
-
-    console.log("Probe complete.");
-    sleep(100)
 }
-
 // Helper sleep
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // Start probing after warm-up
-setTimeout(Probe, 10000);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+setTimeout(() => {
+    monitorRenderingAndSweep();
+}, 5000);
 
 
 
