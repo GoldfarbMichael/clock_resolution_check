@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "SAB Timer PoC with Offscreen",
+  "version": "1.0",
+  "description": "Real parallel SAB timer with Web Workers using OffscreenDocument",
+  "permissions": ["offscreen"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [],
+  "action": {
+    "default_title": "SAB Timer PoC"
+  }
+}
