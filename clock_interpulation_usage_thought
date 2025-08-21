@@ -2,3 +2,6 @@ probe+Interpolation Hybrid:
 After each LLC sweep (occupancy probing), stall and count cycles until next performance.now() clock edge.
 Record both the sweep time and the post-sweep interpolation counter.
 Use the interpolation to reduce timing jitter or as an additional ML feature for richer classification.
+
+**** NOTE ****
+    without SAB!!! so wont need to require isolation

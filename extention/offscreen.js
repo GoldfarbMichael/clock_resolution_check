@@ -1,118 +1,152 @@
 /**
-    * this scrip is the script that probes the buffer
+    * this script is the script that probes the buffer
     * creates worker thread
     * the worker thread will count++ infinitely
 * */
 
+//
+// console.log("Chrome API available?", typeof chrome);
+//
+// // Create shared memory buffer
+// const sharedBuffer = new SharedArrayBuffer(4);
+// const counter = new Uint32Array(sharedBuffer);
+// // Create the worker thread
+// const worker = new Worker('worker.js');
+// worker.postMessage(sharedBuffer);
+//
+// // ----------------------------------------------
+// //   Probe Shusterman Style
+// // ----------------------------------------------
+//
+// // Allocate probe buffer
+// const sweepBuffer = new Uint8Array(BUFFER_SIZE_MB * 1024 * 1024);
+// const sweepOffsets = buildRandomTraversal(sweepBuffer, LINE_SIZE);
+// const samples = new Uint32Array(SAMPLES_PER_TRACE);
+//
+//
+// // Rendering detection loop
+// async function monitorRendering() {
+//     while (true) {
+//         console.log("Rendering");
+//
+//         const start = Atomics.load(counter, 0);
+//         renderHeavyTask();
+//         const end = Atomics.load(counter, 0);
+//         const delta = end - start;
+//
+//         if (delta >= RENDER_THRESHOLD) {
+//             console.log("Rendering detected! Starting sampling...");
+//             await probe();
+//             break;
+//         }
+//         await sleep(100);
+//     }
+// }
+//
+//
+// // Sampling logic skeleton
+// async function probe() {
+//     let tStart;
+//     let tEnd;
+//     let waitEnd;
+//
+//     for (let i = 0; i < SAMPLES_PER_TRACE; i++) {
+//         tStart = Atomics.load(counter, 0);
+//         for (const offset of sweepOffsets) {
+//             sweepBuffer[offset]++;
+//         }
+//         tEnd = Atomics.load(counter, 0);
+//         samples[i] = tEnd - tStart;
+//
+//         waitEnd = Atomics.load(counter, 0) + INTERVAL_IN_SAB_INCREMENTS;
+//         while (Atomics.load(counter, 0) < waitEnd) {}
+//     }
+//
+//     console.log("Sampling complete");
+//     chrome.runtime.sendMessage({
+//         action: "save_csv",
+//         samples: Array.from(samples)  // Convert typed array to normal array for messaging
+//     });
+// }
+//
+// setTimeout(() => {
+//     monitorRendering();
+// }, 3000);
+
+
+
+
+
+/**
+ ************ CLOCK jitter TEST ************
+ ******                           ******
+ * */
+
+
 // Create shared memory buffer
 const sharedBuffer = new SharedArrayBuffer(4);
 const counter = new Uint32Array(sharedBuffer);
+
 // Create the worker thread
 const worker = new Worker('worker.js');
 worker.postMessage(sharedBuffer);
 
-//---------------------------------------------------
-// Phase 1: SAB + Rendering Load Measurement
-//---------------------------------------------------
-
-// Create heavy rendering workload
-function renderHeavyTask() {
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-
-    for (let i = 0; i < 1000; i++) {
-        const div = document.createElement('div');
-        div.style.width = '500px';
-        div.style.height = '500px';
-        div.style.border = '1px solid black';
-        div.style.margin = '5px';
-        container.appendChild(div);
-    }
-}
-
-// ----------------------------------------------
-//   Probe Shusterman Style
-// ----------------------------------------------
+// Create array for sampled timestamps
+const NUM_SAMPLES = 10001;
+const sampleArr = new Array(NUM_SAMPLES);
+const timeStampArr = new Array(NUM_SAMPLES);
 
 
-// Parameters
-const BUFFER_SIZE_MB = 12;  // size of probe buffer
-const LINE_SIZE = 64;  // size of one cache line (64 bytes)
-const PROBE_ITERATIONS = 100;  // number of Probe rounds
-const RENDER_THRESHOLD = 10000;
+// Main sampling routine
+async function sampleOnPerfNowEdge() {
+    let currentEdge = performance.now();
 
-// Allocate probe buffer
-const probeBuffer = new Uint8Array(BUFFER_SIZE_MB * 1024 * 1024);
+    for (let i = 0; i < NUM_SAMPLES; ) {
+        const now = performance.now();
 
-// Build randomized access order
-function buildRandomTraversal(buffer, lineSize) {
-    const numOfLines = Math.floor(buffer.length / lineSize);
-    const offsets = new Uint32Array(numOfLines);
-    for (let i = 0; i < numOfLines; i++) {
-        offsets[i] = i * lineSize;
-    }
-    shuffle(offsets);
-    return offsets;
-}
+        if (now !== currentEdge) {
+            currentEdge = now;
 
-// Fisher-Yates shuffle
-function shuffle(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        const tmp = array[i];
-        array[i] = array[j];
-        array[j] = tmp;
-    }
-}
-
-async function monitorRenderingAndSweep() {
-    console.log("Starting rendering monitor...");
-
-    const sweepOffsets = buildRandomTraversal(probeBuffer, LINE_SIZE);
-    let sweepingStarted = false;
-
-    while (!sweepingStarted) {
-        // Clean DOM
-        document.body.innerHTML = '';
-
-        const start = Atomics.load(counter, 0);
-        renderHeavyTask();
-        const end = Atomics.load(counter, 0);
-        const delta = end - start;
-
-        if (delta >= RENDER_THRESHOLD) {
-            console.log(`Rendering threshold exceeded! Starting sweeping...`);
-            await sweepBufferMultipleTimes(sweepOffsets, PROBE_ITERATIONS);
-            sweepingStarted = true;
+            // sample SAB
+            sampleArr[i] = Atomics.load(counter, 0);
+            timeStampArr[i] = currentEdge;
+            i++;
         }
-
-        await sleep(200);
     }
-}
+    //  Calculate deltas
+    const countDelta = [];
+    const timeStampDelta = [];
 
-async function sweepBufferMultipleTimes(offsets, iterations) {
-    for (let iter = 0; iter < iterations; iter++) {
-        const sweepStart = Atomics.load(counter, 0);
-        for (const offset of offsets) {
-            probeBuffer[offset]++;
-        }
-        const sweepEnd = Atomics.load(counter, 0);
-        const sweepDelta = sweepEnd - sweepStart;
-
-        console.log(`Sweep ${iter + 1}: SAB sweep delta = ${sweepDelta}`);
-        await sleep(50);
+    for (let i = 0; i < NUM_SAMPLES - 1; i++) {
+        countDelta.push(sampleArr[i + 1] - sampleArr[i]);
+        timeStampDelta.push((timeStampArr[i + 1] - timeStampArr[i]) * 1000); // Convert to microseconds and push delta
     }
-}
-// Helper sleep
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+
+    // Format CSV: count,time_us,delta_count,delta_time_us
+    let csv = "countDelta,timeStampDelta\n";
+    for (let i = 0; i < NUM_SAMPLES - 1; i++) {
+        csv += `${countDelta[i]},${timeStampDelta[i]}\n`;
+    }
+
+    // Download
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "sab_timing_data.csv";
+    link.click();
 }
 
-// Start probing after warm-up
+
 
 setTimeout(() => {
-    monitorRenderingAndSweep();
-}, 5000);
+    sampleOnPerfNowEdge();
+}, 3000);
+
+
+
+
+
+
 
 
 
