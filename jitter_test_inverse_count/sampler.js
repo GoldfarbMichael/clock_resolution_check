@@ -1,7 +1,7 @@
 import * as utils from './../utils.js';
 
-const MIN_INCREMENTS = 1e5;
-const MAX_INCREMENTS = 3e5; // Maximum increment for the loop
+const MIN_INCREMENTS = 3e5;
+const MAX_INCREMENTS = 5e5; // Maximum increment for the loop
 const NUM_SAMPLES = 1e4; // Number of samples to take for each increment
 const INCREMENT_STEP = 90; // Step size for increments
 
