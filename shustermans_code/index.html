@@ -33,6 +33,9 @@
 
     const MEASUREMENT_TIME_IN_MS = 30000;
 
+    const NUM_OF_SAMPLES = 2500; //2500 for 30s at 12ms per sample
+    const EDGE_RESOLUTION = 0.1; // in ms
+
     const SAMPLING_PERIOD_IN_MS = 2;
     const SET_SKIPPING_STEP = 2;
 
@@ -43,7 +46,7 @@
     const SETS_PER_PAGE = 64;
 
     const COUNT_SWEEPS = false; // if false, measure time. if true, measure how many cache sweeps we get until the clock changes
-
+    const INTERPOLATED_MEASUREMENT = true; // if true, perform the interpolated measurement instead of the regular one
     // Prime and probe object
     function PrimeProbe(sets, ways) {
         this.evictionArray = new Uint32Array(32 * BYTES_PER_MB / Uint32Array.BYTES_PER_ELEMENT);
@@ -156,8 +159,11 @@
     } // PP object.
 
     PP = new PrimeProbe(CACHE_SETS, CACHE_WAYS);
-
-    let resultArray = new Array(Math.ceil(MEASUREMENT_TIME_IN_MS / SAMPLING_PERIOD_IN_MS));
+    let resultArray;
+    if(INTERPOLATED_MEASUREMENT === true)
+        resultArray = new Array(NUM_OF_SAMPLES);
+    else
+        resultArray = new Array(Math.ceil(MEASUREMENT_TIME_IN_MS / SAMPLING_PERIOD_IN_MS));
 
 
     function performMeasurement() {
@@ -213,11 +219,37 @@
             }
         }
     }
+    function coolDownXEdges(numOfEdges) {
+        let target = performance.now() + numOfEdges * EDGE_RESOLUTION; // 0.1ms per edge
+        while (performance.now() <= target) { }
+    }
 
+    function preformInterpolatedMeasurement() {
+        let timeArr = new Array(NUM_OF_SAMPLES);
+        let countTillEdgeArr = new Array(NUM_OF_SAMPLES);
+        for (let i = 0; i < NUM_OF_SAMPLES; i++) {
+            let count = 0;
+            let start = performance.now();
+            PP.probeAllSets();
+            let end = performance.now();
+            do {
+                count++;
+            }while (end === performance.now());
+            timeArr[i] = (end - start); // in ms
+            countTillEdgeArr[i] = count;
+            coolDownXEdges(2); // Cool down for 0.2ms
+        }
+        // Create tuples and store in resultArray
+        for (let i = 0; i < NUM_OF_SAMPLES; i++) {
+            resultArray[i] = [timeArr[i], countTillEdgeArr[i]];
+        }
+    }
     // Sampling:
     onmessage = function (e) {
-
-        performMeasurement();
+        if (INTERPOLATED_MEASUREMENT === true)
+            preformInterpolatedMeasurement();
+        else
+            performMeasurement();
 
         // Send the result array back to the main page.
         postMessage(resultArray);
