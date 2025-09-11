@@ -1,0 +1,13 @@
+# Ignore data directories
+shustermans_code/logs/native_data/
+shustermans_code/logs/interpolated_data/
+
+# Ignore log files
+shustermans_code/automate_output.log
+shustermans_code/server_output.log
+
+# Ignore requirements.txt
+requirements.txt
+
+# Ignore Python virtual environment
+shustermans_code/myVenv/
