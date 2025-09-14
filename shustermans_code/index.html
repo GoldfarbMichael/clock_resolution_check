@@ -46,7 +46,7 @@
     const SETS_PER_PAGE = 64;
 
     const COUNT_SWEEPS = false; // if false, measure time. if true, measure how many cache sweeps we get until the clock changes
-    const INTERPOLATED_MEASUREMENT = true; // if true, perform the interpolated measurement instead of the regular one
+    const INTERPOLATED_MEASUREMENT = false; // if true, perform the interpolated measurement instead of the regular one
     // Prime and probe object
     function PrimeProbe(sets, ways) {
         this.evictionArray = new Uint32Array(32 * BYTES_PER_MB / Uint32Array.BYTES_PER_ELEMENT);
@@ -221,6 +221,57 @@
             }
         }
     }
+
+
+        function performMeasurement_NoSweeps(interpolated = true) {
+        // For each measurement period
+        let measurement_index = 0;
+        let nextMeasurementStartTime = performance.now();
+        let globalMeasurementStart = performance.now();
+        let currentTime;
+        // Spin until we're ready for the next measurement
+        do {
+            currentTime = performance.now();
+        }
+        while (currentTime === nextMeasurementStartTime);
+
+        for (measurement_index = 0; measurement_index < resultArray.length; measurement_index++) {
+            nextMeasurementStartTime += SAMPLING_PERIOD_IN_MS;
+            currentTime = performance.now();
+            // if we've run out of time, skip the measurement
+            if (currentTime >= nextMeasurementStartTime) {
+                resultArray[measurement_index] = SAMPLING_PERIOD_IN_MS * 3; // Some arbitrarily high value...
+
+            } else {
+                if(interpolated === true){
+                    let count = 0;
+                    let start = performance.now();
+                    PP.probeAllSets();
+                    let end = performance.now();
+                    while(performance.now === end){
+                        count++;
+                    }
+                    resultArray[measurement_index] = [end-start, count];
+
+                }
+                else{ //Not interpolated measurement 
+                    PP.probeAllSets();
+                    resultArray[measurement_index] = performance.now() - currentTime;
+                }
+                // log how many spins it took until the clock ticked again
+                // Prepare for the next measurement
+                do {
+                    currentTime = performance.now();
+                }
+                while (currentTime < nextMeasurementStartTime);
+            }
+        }
+        globalMeasurementTime = performance.now - globalMeasurementStart;
+        resultArray[resultArray.length - 1] = globalMeasurementTime;
+    }
+
+
+
     function coolDownXEdges(numOfEdges) {
         let target = performance.now() + numOfEdges * EDGE_RESOLUTION; // 0.1ms per edge
         while (performance.now() <= target) { }
@@ -258,6 +309,7 @@
         }
         while (currentTime === performance.now());
                 
+        let nextMeasurementStartTime = performance.now();
         for (let i = 0; i < resultArray.length; i++) {
             nextMeasurementStartTime += SAMPLING_PERIOD_IN_MS;
             if(performance.now() >= nextMeasurementStartTime){
