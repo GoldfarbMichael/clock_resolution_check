@@ -33,7 +33,7 @@
 
     const MEASUREMENT_TIME_IN_MS = 30000;
 
-    const NUM_OF_SAMPLES = 2500; //2500 for 30s at 12ms per sample
+    const NUM_OF_SAMPLES = 3750;
     const EDGE_RESOLUTION = 0.1; // in ms
 
     const SAMPLING_PERIOD_IN_MS = 8;
@@ -165,13 +165,14 @@
     // else
     //     resultArray = new Array(Math.ceil(MEASUREMENT_TIME_IN_MS / SAMPLING_PERIOD_IN_MS));
 
-    resultArray = new Array(Math.ceil(MEASUREMENT_TIME_IN_MS / SAMPLING_PERIOD_IN_MS));
+    resultArray = new Array(Math.ceil(MEASUREMENT_TIME_IN_MS / SAMPLING_PERIOD_IN_MS)+1); // +1 to record total time taken
 
 
     function performMeasurement() {
         // For each measurement period
         let measurement_index, busySpins = 0;
         let nextMeasurementStartTime = performance.now(), currentTime;
+
 
         nextMeasurementStartTime += SAMPLING_PERIOD_IN_MS;
 
@@ -223,7 +224,7 @@
     }
 
 
-        function performMeasurement_NoSweeps(interpolated = true) {
+        function performWindowedMeasurement_NoSweeps(interpolated = true) {
         // For each measurement period
         let measurement_index = 0;
         let nextMeasurementStartTime = performance.now();
@@ -248,7 +249,7 @@
                     let start = performance.now();
                     PP.probeAllSets();
                     let end = performance.now();
-                    while(performance.now === end){
+                    while(performance.now() === end){
                         count++;
                     }
                     resultArray[measurement_index] = [end-start, count];
@@ -266,8 +267,7 @@
                 while (currentTime < nextMeasurementStartTime);
             }
         }
-        globalMeasurementTime = performance.now - globalMeasurementStart;
-        resultArray[resultArray.length - 1] = globalMeasurementTime;
+        resultArray[resultArray.length - 1] = performance.now() - globalMeasurementStart; //record total time taken
     }
 
 
@@ -277,9 +277,14 @@
         while (performance.now() <= target) { }
     }
 
-    function preformInterpolatedMeasurement() {
-        let timeArr = new Array(NUM_OF_SAMPLES);
-        let countTillEdgeArr = new Array(NUM_OF_SAMPLES);
+    function preform_Not_WindowedInterpolatedMeasurement() {
+        let globalMeasurementStart = performance.now();
+        let currentTime;
+        // Spin until we're ready for the next measurement
+        do {
+            currentTime = performance.now();
+        }
+        while (currentTime === globalMeasurementStart);
         for (let i = 0; i < NUM_OF_SAMPLES; i++) {
             let count = 0;
             let start = performance.now();
@@ -288,14 +293,11 @@
             do {
                 count++;
             }while (end === performance.now());
-            timeArr[i] = (end - start); // in ms
-            countTillEdgeArr[i] = count;
+            resultArray[i] = [end - start, count];
             coolDownXEdges(2); // Cool down for 0.2ms
         }
-        // Create tuples and store in resultArray
-        for (let i = 0; i < NUM_OF_SAMPLES; i++) {
-            resultArray[i] = [timeArr[i], countTillEdgeArr[i]];
-        }
+        resultArray[resultArray.length - 1] = performance.now() - globalMeasurementStart; //record total time taken
+
     }
 
     function preformInterpolatedMeasurementConstantWindows() {
@@ -336,10 +338,12 @@
 
     // Sampling:
     onmessage = function (e) {
-        if (INTERPOLATED_MEASUREMENT === true)
-            preformInterpolatedMeasurementConstantWindows();
-        else
-            performMeasurement();
+        // performWindowedMeasurement_NoSweeps();
+        preform_Not_WindowedInterpolatedMeasurement();
+        // if (INTERPOLATED_MEASUREMENT === true)
+        //     preformInterpolatedMeasurementConstantWindows();
+        // else
+        //     performMeasurement();
 
         // Send the result array back to the main page.
         postMessage(resultArray);
