@@ -241,7 +241,7 @@
             currentTime = performance.now();
             // if we've run out of time, skip the measurement
             if (currentTime >= nextMeasurementStartTime) {
-                resultArray[measurement_index] = SAMPLING_PERIOD_IN_MS * 3; // Some arbitrarily high value...
+                resultArray[measurement_index] = [SAMPLING_PERIOD_IN_MS * 3,0]; // Some arbitrarily high value...
 
             } else {
                 if(interpolated === true){
@@ -339,13 +339,25 @@
     // Sampling:
     onmessage = function (e) {
         // performWindowedMeasurement_NoSweeps();
-        preform_Not_WindowedInterpolatedMeasurement();
+        // preform_Not_WindowedInterpolatedMeasurement();
         // if (INTERPOLATED_MEASUREMENT === true)
         //     preformInterpolatedMeasurementConstantWindows();
         // else
         //     performMeasurement();
 
         // Send the result array back to the main page.
+
+
+        let measurementType = e.data;
+        
+        if (measurementType === 'windowed') {
+            performWindowedMeasurement_NoSweeps();
+        } else if (measurementType === 'not_windowed') {
+            preform_Not_WindowedInterpolatedMeasurement();
+        } else {
+            // Default behavior (keep existing logic)
+            performWindowedMeasurement_NoSweeps();
+        }
         postMessage(resultArray);
     }
 

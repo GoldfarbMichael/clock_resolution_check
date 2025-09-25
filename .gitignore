@@ -1,6 +1,12 @@
 # Ignore data directories
 shustermans_code/logs/native_data/
 shustermans_code/logs/interpolated_data/
+shustermans_code/data/interpolated_data/
+shustermans_code/data/native_data/
+shustermans_code/logs/
+shustermans_code/data/
+
+
 
 # Ignore log files
 shustermans_code/automate_output.log
