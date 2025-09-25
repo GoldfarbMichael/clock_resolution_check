@@ -3,7 +3,7 @@ const NUM_SAMPLES = 10000;
 const sampleArr = new Array(NUM_SAMPLES);
 const timeStampArr = new Array(NUM_SAMPLES);
 const EDGE_RESOLUTION = 0.1 // in milliseconds
-const NUM_EDGES = 30; // num of edges to record per sample
+const NUM_EDGES = 100; // num of edges to record per sample
 const COUNT_X_EDGES = true; // if true, count X edges per sample
 
 function wait_edge() {
@@ -60,5 +60,5 @@ async function sampleOnPerfNowEdge() {
 
 setTimeout(() => {
     sampleOnPerfNowEdge();
-}, 3000);
+}, 5000);
 

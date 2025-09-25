@@ -6,7 +6,7 @@ shustermans_code/data/native_data/
 shustermans_code/logs/
 shustermans_code/data/
 
-
+perfnow_cost/logs/
 
 # Ignore log files
 shustermans_code/automate_output.log
